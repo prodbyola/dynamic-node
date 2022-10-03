@@ -1,0 +1,32 @@
+{
+  "name": "dynamic-node",
+  "version": "1.0.0",
+  "description": "A javascript package that lets you convert absolutely positioned html elements into resizable and draggable elements.",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "npx tsc",
+    "build-style": "sass src/dynode.scss:build/index.css",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prodbyola/dynamic-node.git"
+  },
+  "keywords": [
+    "draggable",
+    "resizable",
+    "javascript",
+    "typescript",
+    "htmlelement",
+    "node"
+  ],
+  "author": "prodbyola",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/prodbyola/dynamic-node/issues"
+  },
+  "homepage": "https://github.com/prodbyola/dynamic-node#readme",
+  "devDependencies": {
+    "typescript": "^4.8.4"
+  }
+}

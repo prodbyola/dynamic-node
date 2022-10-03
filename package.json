@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/prodbyola/dynamic-node#readme",
   "devDependencies": {
+    "sass": "^1.55.0",
     "typescript": "^4.8.4"
   }
 }

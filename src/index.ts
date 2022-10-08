@@ -63,39 +63,34 @@ class DynamicNode implements DynodeInterface {
 
         // set rect
         if(options.position) this.setPosition = options.position
-        else this.setRect('pos')
+        else this.initRect('pos')
 
         if(options.dimension) this.setDimension = options.dimension
-        else this.setRect('dm')
+        else this.initRect('dm')
 
         const EDGE = options.edgeDetectPadding
         if(typeof EDGE !== 'undefined') this.EDGE = EDGE
     }
 
-    get getOverflow(){
-        const pos = this.position as DynodePosition
-        const dm = this.dimension as DynodeDimension
-
+    isWithinBound(pos: DynodePosition, dm: DynodeDimension){
         const ppos = this.parent?.position as DynodePosition
         const pdm = this.parent?.dimension as DynodeDimension
 
-        let overflown: boolean | 'left' | 'right' | 'top' | 'bottom' = false
+        // let overflown: boolean | 'left' | 'right' | 'top' | 'bottom' = false
+        let withinBound = false
 
         if(pos && dm && ppos && pdm){
             const t = pos.top, l = pos.left, pt = ppos.top, pl = ppos.left // positions
             const w = dm.width, h = dm.height, pw = pdm.width, ph = pdm.height // dimensions
 
             const xs = l + w, ys = t + h  // total (x and y) space taken by element
-            const pxs = pl + pw, pys = pt + ph  // total (x and y) space taken by element
-            
-            // check overflow
-            if(l < pl) overflown = 'left'
-            if(xs > pxs) overflown = 'right'
-            if(t < pt) overflown = 'top'
-            if(ys > pys) overflown = 'bottom'
+            const pxs = pl + pw, pys = pt + ph  // total (x and y) space taken by element's parent
+
+            withinBound = (l > pl) && (xs < pxs) && (pt < t) && (pys > ys)
         }
 
-        return overflown
+        return withinBound
+        // return overflown
     }
 
     /** Sets dynode's parent element */
@@ -137,27 +132,16 @@ class DynamicNode implements DynodeInterface {
         const bbp = this.boundByParent
         const ppos = parent?.position as DynodePosition
         
-        const overflow = this.getOverflow
-        
-        if(bbp && overflow) {
-            const dm = this.dimension as DynodeDimension
-            const pdm = parent?.dimension as DynodeDimension
-            if (overflow === 'left'){
-                pos.left = ppos.left
-            } else if(overflow === 'right'){
-                pos.left = pdm.width - dm.width
-            }
-
-            document.removeEventListener('mousedown', this.drag)
-        }
-
+        const withinBound = this.isWithinBound(pos, this.dimension as DynodeDimension)
+      
         if(parent?.isRelative){
             position = {
                 top: pos.top - ppos.top,
                 left: pos.left - ppos.left
             }
         }
-
+        
+        if(bbp && !withinBound) return
         const el = this.element
         if(el){
             el.style.top = position.top.toString()+'px'
@@ -171,7 +155,7 @@ class DynamicNode implements DynodeInterface {
         this.validateEl()
 
         const bbp = this.boundByParent
-        if(bbp && this.getOverflow) return
+        if(bbp && !this.isWithinBound(this.position as DynodePosition, dm)) return
 
         const el = this.element
 
@@ -195,20 +179,26 @@ class DynamicNode implements DynodeInterface {
     }
 
     /** Sets Dynode's position or dimension values from input element's `getBoundingClientRect`. */
-    private setRect(rt: 'pos' | 'dm'){
+    private initRect(rt: 'pos' | 'dm'){
         const el = this.element as HTMLElement
         const rect = el?.getBoundingClientRect()
 
         if(rt === 'pos') {
-            this.setPosition = {
+            const pos = {
                 top: rect.top,
                 left: rect.left
             }
+
+            this.position = pos 
+            this.setPosition = pos // checks if we're within bound
         } else if (rt === 'dm') {
-            this.setDimension = {
+            const dm = {
                 width: rect.width,
                 height: rect.width
             }
+
+            this.dimension = dm
+            this.setDimension = dm
         }
 
     }
@@ -224,6 +214,7 @@ class DynamicNode implements DynodeInterface {
 
         if(!dm || !pos) throw new Error('Cannot validate dimensions for this dynode')
         let width = dm.width, height = dm.height, top = pos.top, left = pos.left // new values
+        // let updatePos = false
 
         const mp = this.mousePosition
         if(!mp) return // we cannot resize if mouse is not placed at appropriate positions
@@ -244,18 +235,18 @@ class DynamicNode implements DynodeInterface {
                 if(['left', 'bottom-left', 'top-left'].includes(mp)){
                     width = dm.width - dx
                     left = pos.left + dx
+                    // updatePos = true
                 }
                 
                 if(['top', 'top-right', 'top-left'].includes(mp)){
                     height = dm.height - dy
                     top = pos.top + dy
+                    // updatePos = true
                 }
 
-                // don't update horizontally dragged positions when you need proportional scaling
-                // const mm = this.detectMouseMovement(e) as string
-                // console.log('mm ', mm)
-                // if(proportional && ['left', 'right'].includes(mm)) return
-                // else 
+                const withinBound = this.isWithinBound({ left, top }, this.dimension as DynodeDimension)
+                if(this.boundByParent && !withinBound) return
+
                 this.setPosition = { left, top }
             }
 
@@ -397,8 +388,6 @@ class DynamicNode implements DynodeInterface {
     }
 
     mount(){
-        // console.log('parent ', this.parent)
-        // console.log('rect ', this.rect)
         this.addElementListeners()
 
         const el = this.element

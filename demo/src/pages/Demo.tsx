@@ -12,6 +12,7 @@ export default function Demo(){
       element: 'dynode'
     })
 
+    dynode.boundByParent = false
     dynode.mount()
 
   }, [])

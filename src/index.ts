@@ -30,7 +30,7 @@ const proportionalScale = (options: PropOptions): number => {
 };
   
 
-class Dynode implements DynodeInterface {
+class DynamicNode implements DynodeInterface {
     element?: HTMLElement | undefined;
     parent?: DynodeParent | undefined;
     position?: DynodePosition | undefined;
@@ -148,7 +148,7 @@ class Dynode implements DynodeInterface {
                 pos.left = pdm.width - dm.width
             }
 
-            // document.removeEventListener
+            document.removeEventListener('mousedown', this.drag)
         }
 
         if(parent?.isRelative){
@@ -310,6 +310,8 @@ class Dynode implements DynodeInterface {
 
     /** Calls Dynode's `move` or `resize` actions. */
     private drag(e: MouseEvent){
+        e.preventDefault()
+
         if(this.mousePosition){
             this.resize(e)
         } else {
@@ -391,10 +393,7 @@ class Dynode implements DynodeInterface {
             this.detectMousePosition(e)
         })
 
-        el?.addEventListener('mousedown', (e) => {
-            e.preventDefault()
-            this.drag(e)
-        })
+        el?.addEventListener('mousedown', this.drag.bind(this))
     }
 
     mount(){
@@ -407,4 +406,4 @@ class Dynode implements DynodeInterface {
     }
 }
 
-export default Dynode
+export default DynamicNode

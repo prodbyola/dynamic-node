@@ -1,6 +1,6 @@
 {
   "name": "dynamic-node",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A javascript package that lets you convert absolutely positioned html elements into resizable and draggable elements.",
   "main": "build/index.js",
   "scripts": {

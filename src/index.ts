@@ -9,6 +9,8 @@ import {
     // MouseDirectionType,
 } from "./interface";
 
+type DirectionType = 'left' | 'right' | 'top' | 'bottom'
+
 // let xPos = 0, yPos = 0, movement: MouseDirectionType | undefined;
 
 type PropOptions = {
@@ -31,52 +33,87 @@ const proportionalScale = (options: PropOptions): number => {
   
 
 class DynamicNode implements DynodeInterface {
+    options: DynodeOptions | undefined
     element?: HTMLElement | undefined;
     parent?: DynodeParent | undefined;
     position?: DynodePosition | undefined;
     dimension?: DynodeDimension | undefined;
-
-    boundByParent = true;
+    
+    private bbp = true;
+    private mounted = false
     
     EDGE = 6;
     mousePosition?: MousePositionType | undefined
     private atCorner = false
+    private boundedSides: Map<DirectionType, boolean> | undefined
 
     constructor(options: DynodeOptions) {
-        let el = options.element
-        // const rect = options.rect
+        this.options = options
+    }
 
-        // set element
-        if(typeof el === 'string') {
-            const getEl = document.getElementById(el)
-            if(!getEl) throw new Error(`Element of id ${el} cannot be found in the DOM`)
-            else el = getEl
+    get boundByParent(){
+        return this.bbp
+    }
+
+    set boundByParent(value: boolean){
+        const bs = this.boundedSides
+        const parent = this.parent
+        
+        if(value && bs && parent){
+            const dm = this.dimension as DynodeDimension
+            const pos = this.position as DynodePosition
+            
+            const pdm = parent.dimension as DynodeDimension
+            const ppos = parent.position as DynodePosition
+
+            
+            const sides = bs.keys()
+            for(const key in sides){
+                const side = key as DirectionType
+                const sideIsBound = bs.get(side)
+                const PAD = 2
+                
+                if(!sideIsBound) {
+                    if(['left', 'right'].includes(side)){
+                        if(side === 'left' || side === 'right') {
+                            pos.left = ppos.left - PAD
+                            this.setPosition = pos
+                        }
+                        
+                        if(side === 'right') {
+                            // left should already be fixed so we check if is width is overflown
+                            // if overflown, we fix the left
+                            const withinBound = this.isWithinBound(pos, dm)
+                            if(!withinBound) {
+                                dm.width = pdm.width - PAD
+                            }
+                        }
+                    } else {
+                        if(side === 'top'  || side === 'bottom'){
+                            pos.top = ppos.top - PAD
+                            this.setPosition = pos
+                        }
+
+                        if(side === 'bottom') {
+                            // left should already be fixed so we check if is width is overflown
+                            // if overflown, we fix the left
+                            const withinBound = this.isWithinBound(pos, dm)
+                            if(!withinBound) {
+                                dm.height = pdm.height - PAD
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        this.element = el
-
-        // set element's parent before setting element's position
-        // because element's position may depend on relative parent's position
-        this.setParent()
-        const bbp = options.boundByParent
-        if(typeof bbp !== 'undefined') this.boundByParent = bbp
-
-        // set rect
-        if(options.position) this.setPosition = options.position
-        else this.initRect('pos')
-
-        if(options.dimension) this.setDimension = options.dimension
-        else this.initRect('dm')
-
-        const EDGE = options.edgeDetectPadding
-        if(typeof EDGE !== 'undefined') this.EDGE = EDGE
+        this.bbp = value
     }
 
     isWithinBound(pos: DynodePosition, dm: DynodeDimension){
         const ppos = this.parent?.position as DynodePosition
         const pdm = this.parent?.dimension as DynodeDimension
 
-        // let overflown: boolean | 'left' | 'right' | 'top' | 'bottom' = false
         let withinBound = false
 
         if(pos && dm && ppos && pdm){
@@ -85,8 +122,20 @@ class DynamicNode implements DynodeInterface {
 
             const xs = l + w, ys = t + h  // total (x and y) space taken by element
             const pxs = pl + pw, pys = pt + ph  // total (x and y) space taken by element's parent
+            
 
-            withinBound = (l > pl) && (xs < pxs) && (pt < t) && (pys > ys)
+            // check boundaries
+            const left = l > pl, right = xs < pxs, top = pt < t, bottom = pys > ys
+            withinBound = (left) && (right) && (top) && (bottom)
+
+            const bm = new Map<DirectionType, boolean>() // boundary mapping
+            bm.set('left', left)
+            bm.set('right', right)
+            bm.set('top', top)
+            bm.set('bottom', bottom)
+
+            this.boundedSides = bm
+            
         }
 
         return withinBound
@@ -129,7 +178,7 @@ class DynamicNode implements DynodeInterface {
 
         let position = pos
         const parent = this.parent
-        const bbp = this.boundByParent
+        const bbp = this.bbp
         const ppos = parent?.position as DynodePosition
         
         const withinBound = this.isWithinBound(pos, this.dimension as DynodeDimension)
@@ -142,6 +191,7 @@ class DynamicNode implements DynodeInterface {
         }
         
         if(bbp && !withinBound) return
+
         const el = this.element
         if(el){
             el.style.top = position.top.toString()+'px'
@@ -154,7 +204,7 @@ class DynamicNode implements DynodeInterface {
     private set setDimension(dm : DynodeDimension) {
         this.validateEl()
 
-        const bbp = this.boundByParent
+        const bbp = this.bbp
         if(bbp && !this.isWithinBound(this.position as DynodePosition, dm)) return
 
         const el = this.element
@@ -245,7 +295,7 @@ class DynamicNode implements DynodeInterface {
                 }
 
                 const withinBound = this.isWithinBound({ left, top }, this.dimension as DynodeDimension)
-                if(this.boundByParent && !withinBound) return
+                if(this.bbp && !withinBound) return
 
                 this.setPosition = { left, top }
             }
@@ -361,23 +411,6 @@ class DynamicNode implements DynodeInterface {
         }
     }
 
-    // private detectMouseMovement(e: MouseEvent){
-    //     const draggedLeft = e.pageX < xPos;
-    //     const draggedRight = e.pageX > xPos;
-    //     const draggedUp = e.pageY < yPos;
-    //     const draggedDown = e.pageY > yPos;
-
-    //     if (draggedLeft) movement = 'left';
-    //     if (draggedRight) movement = 'right';
-    //     if (draggedUp) movement = 'up';
-    //     if (draggedDown) movement = 'down';
-
-    //     xPos = e.pageX 
-    //     yPos = e.pageY;
-
-    //     return movement;
-    // }
-
     private addElementListeners(){
         const el = this.element
         el?.addEventListener('mousemove', (e) => {
@@ -388,10 +421,44 @@ class DynamicNode implements DynodeInterface {
     }
 
     mount(){
+        if(this.mounted) return // we must not mount a dynode multiple times
+        if(!this.options) throw new Error('Options not specified')
+        
+        const options = this.options
+        let el = options.element
+        // const rect = options.rect
+
+        // set element
+        if(typeof el === 'string') {
+            const getEl = document.getElementById(el)
+            if(!getEl) throw new Error(`Element of id ${el} cannot be found in the DOM`)
+            else el = getEl
+        }
+
+        this.element = el
+
+        // set element's parent before setting element's position
+        // because element's position may depend on relative parent's position
+        this.setParent()
+
+        // set rect
+        if(options.position) this.setPosition = options.position
+        else this.initRect('pos')
+
+        if(options.dimension) this.setDimension = options.dimension
+        else this.initRect('dm')
+
+        const EDGE = options.edgeDetectPadding
+        if(typeof EDGE !== 'undefined') this.EDGE = EDGE
+
+        const bbp = options.boundByParent
+        if(typeof bbp !== 'undefined') this.boundByParent = bbp
+
         this.addElementListeners()
 
-        const el = this.element
+        // const el = this.element
         el?.classList.add('dynode')
+        this.mounted = true
     }
 }
 

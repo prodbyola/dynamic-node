@@ -6,7 +6,7 @@ To install use npm: \
 ```npm i dynamic-node --save``` 
 
 or yarn: \
-```yarn install dynamic-node```
+```yarn add dynamic-node```
 
 ## Usage
 ### Step 1

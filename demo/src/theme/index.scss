@@ -7,8 +7,7 @@
         
         .demo-section {
             height: 100vh;
-            width: 70%;
-            
+            width: 67%;
 
             .toolbar {
                 display: inline-flex;
@@ -45,5 +44,36 @@
             }
     
         }
+
+        .demo-sidebar {
+            width: 33%;
+            padding: 24px 28px;
+    
+            .dynode-meta {
+                margin-bottom: 18px;
+                color: grey;
+                
+                .dm-title {
+                    font-weight: 600;
+                }
+                
+                .dm-values {
+                    font-size: 1.4rem;
+                    display: inline-flex;
+                    width: 88%;
+                    justify-content: space-between;
+                    // column-gap: 54px;
+
+                    .dm-item {
+                        width: 50%;
+                    }
+    
+                    .dmv {
+                        font-weight: 600;
+                    }
+                }
+            }
+        }
     }
+
 }

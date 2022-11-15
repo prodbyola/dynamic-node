@@ -1,6 +1,12 @@
 export const MOUSE_POSITIONS = ['top', 'bottom', 'left', 'right', 'top-right', 'top-left', 'bottom-right', 'bottom-left'] as const
 export type MousePositionType = typeof MOUSE_POSITIONS[number]
 export type MouseDirectionType = 'left' | 'right' | 'up' | 'down' | undefined;
+export type EventKey = 'resize' | 'move'
+export type EventValue = {
+    dm: DynodeDimension
+    pos: DynodePosition
+    rPos: DynodePosition
+}
 
 export type DynodePosition = {
     top: number
@@ -54,4 +60,5 @@ export interface DynodeInterface {
     boundByParent?: boolean
     
     mount: () => void
+    on: (key: EventKey, func: (e?: EventValue) => void) => void
 } 

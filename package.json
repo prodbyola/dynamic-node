@@ -1,11 +1,10 @@
 {
   "name": "dynamic-node",
-  "version": "2.0.0",
+  "version": "2.1.1",
   "description": "A javascript package that lets you convert absolutely positioned html elements into resizable and draggable elements.",
   "main": "build/index.js",
   "scripts": {
-    "build": "npx tsc",
-    "build-style": "sass src/dynode.scss:build/index.css",
+    "build": "rm build -rf && npx tsc && sass src/dynode.scss:build/index.css",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

@@ -6,40 +6,27 @@ import {
     DynodeDimension,
     DynodePosition,
     DynodeParent,
-    // MouseDirectionType,
+    EventKey,
+    EventValue
 } from "./interface";
+
+import { proportionalScale,getMouseDistance } from "./utils"
+
+export * from './interface'
 
 type DirectionType = 'left' | 'right' | 'top' | 'bottom'
 
-// let xPos = 0, yPos = 0, movement: MouseDirectionType | undefined;
-
-type PropOptions = {
-    m1: number;
-    n1: number;
-    m2: number;
-};
-
-/**
- * Finds the value of an unknown number `n2` against known `m2` by using their old values `n1` and `m1`.
- *
- * It aims to solve the equation: while `m1` = 4 and `n1` = 6, if `m2` = 8, what will `n2` be?
- * @param {PropOptions} options
- * @returns
- */
-const proportionalScale = (options: PropOptions): number => {
-    const n2 = ((options.n1 * options.m2) / options.m1).toFixed();
-    return parseInt(n2);
-};
-  
-
 class DynamicNode implements DynodeInterface {
-    options: DynodeOptions | undefined
     element?: HTMLElement | undefined;
     parent?: DynodeParent | undefined;
-    position?: DynodePosition | undefined;
-    dimension?: DynodeDimension | undefined;
+
+    private events: Map<EventKey, Array<(e?: EventValue) => void>> = new Map
+    private options: DynodeOptions | undefined
+    private _position: DynodePosition = { top: 0, left: 0 };
+    private _dimension: DynodeDimension = { width: 0, height: 0 };
     
-    private bbp = true;
+    private _boundByParent = true;
+    relativePosition: DynodePosition = { left: 0, top: 0 } 
     private mounted = false
     
     EDGE = 6;
@@ -52,7 +39,7 @@ class DynamicNode implements DynodeInterface {
     }
 
     get boundByParent(){
-        return this.bbp
+        return this._boundByParent
     }
 
     set boundByParent(value: boolean){
@@ -77,7 +64,7 @@ class DynamicNode implements DynodeInterface {
                     if(['left', 'right'].includes(side)){
                         if(side === 'left' || side === 'right') {
                             pos.left = ppos.left - PAD
-                            this.setPosition = pos
+                            this.position = pos
                         }
                         
                         if(side === 'right') {
@@ -91,7 +78,7 @@ class DynamicNode implements DynodeInterface {
                     } else {
                         if(side === 'top'  || side === 'bottom'){
                             pos.top = ppos.top - PAD
-                            this.setPosition = pos
+                            this.position = pos
                         }
 
                         if(side === 'bottom') {
@@ -107,9 +94,15 @@ class DynamicNode implements DynodeInterface {
             }
         }
 
-        this.bbp = value
+        this._boundByParent = value
     }
 
+    /**
+     * Checks whether given position/dimension is within the parent's boundaries.
+     * @param { DynodePosition } pos - position.
+     * @param { DynodeDimension } dm - dimension. 
+     * @returns boolean 
+     */
     isWithinBound(pos: DynodePosition, dm: DynodeDimension){
         const ppos = this.parent?.position as DynodePosition
         const pdm = this.parent?.dimension as DynodeDimension
@@ -117,15 +110,15 @@ class DynamicNode implements DynodeInterface {
         let withinBound = false
 
         if(pos && dm && ppos && pdm){
-            const t = pos.top, l = pos.left, pt = ppos.top, pl = ppos.left // positions
-            const w = dm.width, h = dm.height, pw = pdm.width, ph = pdm.height // dimensions
+            const t = pos.top, l = pos.left, pt = ppos.top, pl = ppos.left // node and parent's positions
+            const w = dm.width, h = dm.height, pw = pdm.width, ph = pdm.height // node and parent's dimensions
 
-            const xs = l + w, ys = t + h  // total (x and y) space taken by element
-            const pxs = pl + pw, pys = pt + ph  // total (x and y) space taken by element's parent
+            const xs = l + w, ys = t + h  // total (x and y) space taken by node
+            const pxs = pl + pw, pys = pt + ph  // total (x and y) space taken by parent
             
 
             // check boundaries
-            const left = l > pl, right = xs < pxs, top = pt < t, bottom = pys > ys
+            const left = l >= pl, right = xs < pxs, top = pt <= t, bottom = pys > ys
             withinBound = (left) && (right) && (top) && (bottom)
 
             const bm = new Map<DirectionType, boolean>() // boundary mapping
@@ -139,7 +132,6 @@ class DynamicNode implements DynodeInterface {
         }
 
         return withinBound
-        // return overflown
     }
 
     /** Sets dynode's parent element */
@@ -166,19 +158,24 @@ class DynamicNode implements DynodeInterface {
         }
     }
 
+    /** Validates input element */
     private validateEl(){
         const el = this.element
         if(!el || typeof el === 'string') {
             throw new Error('The element associated with this Dynode is no longer available in the DOM.')
         }
     }
+
+    get position(){
+        return this._position
+    }
     
-    private set setPosition(pos : DynodePosition) {
+    set position(pos : DynodePosition) {
         this.validateEl()
 
         let position = pos
         const parent = this.parent
-        const bbp = this.bbp
+        const bbp = this.boundByParent
         const ppos = parent?.position as DynodePosition
         
         const withinBound = this.isWithinBound(pos, this.dimension as DynodeDimension)
@@ -197,14 +194,19 @@ class DynamicNode implements DynodeInterface {
             el.style.top = position.top.toString()+'px'
             el.style.left = position.left.toString()+'px'
         }
-
-        this.position = pos
+        
+        this.relativePosition = position
+        this._position = pos
     }
 
-    private set setDimension(dm : DynodeDimension) {
+    get dimension(){
+        return this._dimension
+    }
+
+    set dimension(dm : DynodeDimension) {
         this.validateEl()
 
-        const bbp = this.bbp
+        const bbp = this.boundByParent
         if(bbp && !this.isWithinBound(this.position as DynodePosition, dm)) return
 
         const el = this.element
@@ -214,21 +216,13 @@ class DynamicNode implements DynodeInterface {
             el.style.height = dm.height.toString()+'px'
         }
 
-        this.dimension = dm
-    }
-    
-    private getMouseDistance(e: MouseEvent, init: {x: number, y: number}){
-        const mpCurrent = {
-            x: e.clientX,
-            y: e.clientY
-        }
-
-        const dx = mpCurrent.x - init.x, dy = mpCurrent.y - init.y
-
-        return [dx, dy]
+        this._dimension = dm
     }
 
-    /** Sets Dynode's position or dimension values from input element's `getBoundingClientRect`. */
+    /** 
+     * Sets Dynode's position or dimension values from input element's `getBoundingClientRect`. 
+     * @param {string} rt - Whether to initialize position or dimension. Possible values are `pos` and `dm`.
+    */
     private initRect(rt: 'pos' | 'dm'){
         const el = this.element as HTMLElement
         const rect = el?.getBoundingClientRect()
@@ -240,7 +234,6 @@ class DynamicNode implements DynodeInterface {
             }
 
             this.position = pos 
-            this.setPosition = pos // checks if we're within bound
         } else if (rt === 'dm') {
             const dm = {
                 width: rect.width,
@@ -248,11 +241,15 @@ class DynamicNode implements DynodeInterface {
             }
 
             this.dimension = dm
-            this.setDimension = dm
         }
 
     }
 
+    /**
+     * Resizes the DynamicNode
+     * @param e 
+     * @returns 
+     */
     private resize(e: MouseEvent){
         const mpInit = {
             x: e.clientX,
@@ -274,7 +271,7 @@ class DynamicNode implements DynodeInterface {
         const updateDM = (e: MouseEvent) => {
             e.preventDefault()
             
-            const [dx, dy] = this.getMouseDistance(e, mpInit)
+            const [dx, dy] = getMouseDistance(e, mpInit)
 
             if(['right', 'bottom', 'bottom-right', 'bottom-left', 'top-right'].includes(mp)) {
                 if(['right', 'bottom-right', 'top-right'].includes(mp)) width = dm.width + dx
@@ -295,9 +292,9 @@ class DynamicNode implements DynodeInterface {
                 }
 
                 const withinBound = this.isWithinBound({ left, top }, this.dimension as DynodeDimension)
-                if(this.bbp && !withinBound) return
+                if(this.boundByParent && !withinBound) return
 
-                this.setPosition = { left, top }
+                this.position = { left, top }
             }
 
             if(proportional){
@@ -310,7 +307,16 @@ class DynamicNode implements DynodeInterface {
                 width = parseInt(width.toFixed())
             }
 
-            this.setDimension = { width, height }
+            this.dimension = { width, height }
+
+            const events = this.events.get('resize')
+            if(events && events.length){
+                events.forEach(func => func({
+                    pos: this.position,
+                    dm: this.dimension,
+                    rPos: this.relativePosition
+                }))
+            }
         }
 
         document.addEventListener('mousemove', updateDM)
@@ -319,6 +325,10 @@ class DynamicNode implements DynodeInterface {
         })
     }
 
+    /**
+     * Moves the DynamicNode.
+     * @param { MouseEvent } e - Mouse event 
+    */
     private move(e: MouseEvent){
         const mpInit = {
             x: e.clientX,
@@ -329,7 +339,7 @@ class DynamicNode implements DynodeInterface {
         let newTop = 0, newLeft = 0 
 
         const updatePos = (e: MouseEvent) => {
-            const [dx, dy] = this.getMouseDistance(e, mpInit)
+            const [dx, dy] = getMouseDistance(e, mpInit)
 
             newLeft = pos.left + dx
             newTop = pos.top + dy
@@ -339,7 +349,16 @@ class DynamicNode implements DynodeInterface {
                 left: newLeft
             }
 
-            this.setPosition = newPos
+            this.position = newPos
+
+            const events = this.events.get('move')
+            if(events && events.length){
+                events.forEach(func => func({
+                    pos: this.position,
+                    dm: this.dimension,
+                    rPos: this.relativePosition
+                }))
+            }
         }
 
         document.addEventListener('mousemove', updatePos)
@@ -442,10 +461,10 @@ class DynamicNode implements DynodeInterface {
         this.setParent()
 
         // set rect
-        if(options.position) this.setPosition = options.position
+        if(options.position) this.position = options.position
         else this.initRect('pos')
 
-        if(options.dimension) this.setDimension = options.dimension
+        if(options.dimension) this.dimension = options.dimension
         else this.initRect('dm')
 
         const EDGE = options.edgeDetectPadding
@@ -459,6 +478,17 @@ class DynamicNode implements DynodeInterface {
         // const el = this.element
         el?.classList.add('dynode')
         this.mounted = true
+        delete this['options']
+    }
+
+    on(key: EventKey, func: (e?: EventValue) => void){
+        const evt = this.events.get(key)
+        if(typeof evt === 'undefined') {
+            this.events.set(key, [func])
+        } else {
+            evt.push(func)
+            this.events.set(key, evt)
+        }
     }
 }
 

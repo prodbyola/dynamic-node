@@ -1,19 +1,17 @@
-#dynode-demo-parent {
-  height: 500px;
-  width: 900px;
-  background-color: grey;
+.dynode-parent {
   position: relative;
 }
 
-#dynode-demo {
-    height: 300px;
-    width: 300px;
-    background-color: aqua;
-    position: absolute;
+.dynode {
+  position: absolute;
 }
 
-.dynode {
-    cursor: move;
+.dynode.hide-cursor {
+  cursor: default !important;
+}
+
+.dynode.center {
+  cursor: move;
 }
 
 .dynode.top, .dynode.bottom {

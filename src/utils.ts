@@ -32,3 +32,7 @@ export const getMouseDistance = (e: MouseEvent, init: {x: number, y: number}) =>
 
     return [dx, dy]
 }
+
+export const typeInstance = <T>(object: any, checker: keyof T): object is T  => {
+    return checker in object
+}

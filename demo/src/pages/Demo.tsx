@@ -1,10 +1,11 @@
 import { useEffect, useState, ChangeEvent } from 'react'
+// import DynamicNode, { DynodeOptions, EventValue } from 'dynamic-node'
 import DynamicNode, { DynodeOptions, EventValue } from 'dynamic-node'
 
 import 'dynamic-node/build/index.css'
 
-import { FormControlLabel, Switch } from '@mui/material'
 import DynodeMeta from '../components/DynodeMeta'
+import OptionInput from '../components/OptionInput'
 
 import { theme } from "../theme"
 
@@ -27,12 +28,14 @@ export default function Demo(){
   dynode.on('move', (e) => updateRects(e as EventValue))
   dynode.on('resize', (e) => updateRects(e as EventValue))
 
-  const changeSwitch = (e: ChangeEvent<HTMLInputElement>, key: 'boundByParent') => {
-    const checked = e.target.checked
-    if(key === 'boundByParent') {
-      options.boundByParent = checked
-      dynode.boundByParent = checked
-    }
+  const changeSwitch = (e: ChangeEvent,  key: keyof DynodeOptions) => {
+    const checkable = ['boundByParent', 'cursors', 'allowDrag'].includes(key)
+
+    const target = e.target as HTMLInputElement
+    let value: boolean | string = target.value
+
+    if(checkable) value = target.checked
+    dynode[key] = value as never
 
     const newOpt = Object.create(options)
     updateOptions(newOpt)
@@ -55,25 +58,29 @@ export default function Demo(){
         <div className='toolbar'style={{
             backgroundColor: pryColor.main
           }}>
-            <FormControlLabel 
-              className='switch'
-              control={<Switch 
-                checked={options.boundByParent} 
-                onChange={ (e) => changeSwitch(e, 'boundByParent') } 
-                sx={{
-                  '& .MuiSwitch-thumb': {
-                    backgroundColor: pryColor.light
-                  },
-                  '& .MuiSwitch-switchBase': {
-                    '&.Mui-checked': {
-                      '& + .MuiSwitch-track': {
-                        backgroundColor: 'white'
-                      }
-                    }
-                  }
-                }} 
-              />} 
-              label="Bound within parent" 
+            <OptionInput 
+              value={dynode.boundByParent}
+              label="Bound by parent"
+              type='switch'
+              onChange={(e) => changeSwitch(e, 'boundByParent')} 
+            />
+            <OptionInput 
+              value={dynode.cursors}
+              label="Show Cursors"
+              type='switch'
+              onChange={(e) => changeSwitch(e, 'cursors')} 
+            />
+            <OptionInput 
+              value={dynode.allowDrag}
+              label="Allow Drag"
+              type='switch'
+              onChange={(e) => changeSwitch(e, 'allowDrag')} 
+            />
+            <OptionInput 
+              value={dynode.outputDecimal}
+              label="OD"
+              type='type'
+              onChange={(e) => changeSwitch(e, 'outputDecimal')} 
             />
           </div>
         <div className='showcase'>

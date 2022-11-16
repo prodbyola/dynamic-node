@@ -18,8 +18,11 @@ In your html:
 ```
 
 ### Step 2
-In your css, ensure target's parent is <strong>relatively</strong> positioned and target is <strong>absolutely</strong> positioned:
+In your css, import dynode's css and ensure target's parent is <strong>relatively</strong> positioned and target is <strong>absolutely</strong> positioned:
+
 ```css
+@import '~dynamic-node/build/index.css';
+
 #dynode-parent {
     width: 1200px;
     height: 700px;

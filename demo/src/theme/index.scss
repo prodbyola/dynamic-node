@@ -15,6 +15,7 @@
                 height: 68px;
                 color: white;
                 justify-content: center;
+                align-items: center;
                 column-gap: 14px;
             }
 
@@ -76,4 +77,16 @@
         }
     }
 
+}
+
+.MuiOutlinedInput-notchedOutline {
+    border-color: white !important;
+}
+
+.MuiOutlinedInput-input {
+    color: white !important;
+}
+
+.MuiInputLabel-outlined {
+    color: white !important;
 }

@@ -10,14 +10,25 @@ import {
     EventValue
 } from "./interface";
 
-import { proportionalScale,getMouseDistance } from "./utils"
+import { proportionalScale, getMouseDistance } from "./utils"
+import { defaultOptions } from "./modules/defaults";
 
 export * from './interface'
+export * from './modules/index'
 
 type DirectionType = 'left' | 'right' | 'top' | 'bottom'
 
 class DynamicNode implements DynodeInterface {
-    element?: HTMLElement | undefined;
+    private _element: HTMLElement = document.createElement('div');
+    get element(){
+        return this._element
+    }
+
+    set element(value){
+        this._element = value
+        this.addElementListeners()
+    }
+
     parent?: DynodeParent | undefined;
 
     private events: Map<EventKey, Array<(e?: EventValue) => void>> = new Map
@@ -29,13 +40,50 @@ class DynamicNode implements DynodeInterface {
     relativePosition: DynodePosition = { left: 0, top: 0 } 
     private mounted = false
     
-    EDGE = 6;
-    mousePosition?: MousePositionType | undefined
+    private _mousePosition: MousePositionType = 'no-cursor'
+    get mousePosition(){
+        return this._mousePosition
+    }
+
+    set mousePosition(mp){
+        const classList = this.element.classList
+
+        MOUSE_POSITIONS.forEach(mc => {
+            if(classList.contains(mc)) classList.remove(mc)
+        })
+
+        classList.add(mp)
+        this._mousePosition = mp
+    }
     private atCorner = false
     private boundedSides: Map<DirectionType, boolean> | undefined
 
+    edgeDetectPadding = 6;
+    allowDrag = true
+
+    private _cursors = true
+    get cursors(){
+        return this._cursors
+    }
+
+    set cursors(value){
+        const classList = this.element.classList
+        const cl = 'hide-cursor'
+
+        if(value) classList.remove(cl)
+        else classList.add(cl)
+
+        this._cursors = value
+    }
+
+    allowExternalCtrl = false
+    outputDecimal = 2
+    
     constructor(options: DynodeOptions) {
-        this.options = options
+        this.options = { 
+            ...defaultOptions,
+            ...options 
+        }
     }
 
     get boundByParent(){
@@ -141,6 +189,7 @@ class DynamicNode implements DynodeInterface {
             throw new Error('No parent was found for input node. Element must have a relatively positioned parent.')
         }
 
+        parent.classList.add('dynode-parent')
         const rect = parent.getBoundingClientRect()
         const posType = window.getComputedStyle(parent).position
 
@@ -170,10 +219,12 @@ class DynamicNode implements DynodeInterface {
         return this._position
     }
     
-    set position(pos : DynodePosition) {
+    set position(input : DynodePosition) {
         this.validateEl()
 
+        const pos = this.toFixed(input)
         let position = pos
+
         const parent = this.parent
         const bbp = this.boundByParent
         const ppos = parent?.position as DynodePosition
@@ -185,6 +236,8 @@ class DynamicNode implements DynodeInterface {
                 top: pos.top - ppos.top,
                 left: pos.left - ppos.left
             }
+
+            position = this.toFixed(position)
         }
         
         if(bbp && !withinBound) return
@@ -203,9 +256,10 @@ class DynamicNode implements DynodeInterface {
         return this._dimension
     }
 
-    set dimension(dm : DynodeDimension) {
+    set dimension(input : DynodeDimension) {
         this.validateEl()
 
+        const dm = this.toFixed(input)
         const bbp = this.boundByParent
         if(bbp && !this.isWithinBound(this.position as DynodePosition, dm)) return
 
@@ -217,6 +271,20 @@ class DynamicNode implements DynodeInterface {
         }
 
         this._dimension = dm
+    }
+
+    private toFixed<T extends DynodeDimension | DynodePosition>(value: T): T {
+        const od = this.outputDecimal
+
+        Object.keys(value).forEach(key => {
+            const k = key as keyof T, v = value[k]
+            const f = (v as number).toFixed(od)
+            const cn = od ? parseFloat(f) : parseInt(f)
+
+            value[k] = cn as never
+        })
+
+        return value
     }
 
     /** 
@@ -370,9 +438,11 @@ class DynamicNode implements DynodeInterface {
 
     /** Calls Dynode's `move` or `resize` actions. */
     private drag(e: MouseEvent){
+        if(!this.allowDrag) return
+
         e.preventDefault()
 
-        if(this.mousePosition){
+        if(this.mousePosition !== 'center'){
             this.resize(e)
         } else {
             this.move(e)
@@ -384,7 +454,6 @@ class DynamicNode implements DynodeInterface {
      * This helps to show the right cursor type and determine if the action should be `resize` or `move`.  
     */
     private detectMousePosition(e: MouseEvent){
-        // const rect = this.rect as DynodeRectType
         let {top, left } = { ...this.position as DynodePosition }
         const { width, height } = { ...this.dimension as DynodeDimension }
 
@@ -392,7 +461,7 @@ class DynamicNode implements DynodeInterface {
         const xPos = e.clientX
         const yPos = e.clientY
 
-        const EDGE = this.EDGE
+        const EDGE = this.edgeDetectPadding
 
         const atLeft = xPos >= left && (xPos < (left + EDGE));
         const atRight = xPos >= left + (width - EDGE) && (xPos < (left + width));
@@ -403,7 +472,7 @@ class DynamicNode implements DynodeInterface {
         const tl = atTop && atLeft, tr = atTop && atRight, bl = atBottom && atLeft, br = atBottom && atRight
         this.atCorner = tl || tr || bl || br
 
-        let mp: MousePositionType | undefined
+        let mp: MousePositionType = 'no-cursor'
         if(this.atCorner) {
             if (tl) mp = 'top-left'
             else if (tr) mp = 'top-right'
@@ -414,20 +483,21 @@ class DynamicNode implements DynodeInterface {
             else if (atRight) mp ='right'
             else if (atTop) mp = 'top'
             else if (atBottom) mp = 'bottom'
+            else mp = 'center'
         }
 
-        const classList = this.element?.classList
-        if(!mp || mp !== this.mousePosition) {
-            MOUSE_POSITIONS.forEach(mp => {
-                if(classList?.contains(mp)) classList?.remove(mp)
-            })
-        }
+        // const classList = this.element?.classList
+        // if(!mp || mp !== this.mousePosition) {
+        //     MOUSE_POSITIONS.forEach(mp => {
+        //         if(classList?.contains(mp)) classList?.remove(mp)
+        //     })
+        // }
 
         this.mousePosition = mp
         
-        if(mp) {
-            classList?.add(mp)
-        }
+        // if(mp) {
+        //     classList?.add(mp)
+        // }
     }
 
     private addElementListeners(){
@@ -435,6 +505,8 @@ class DynamicNode implements DynodeInterface {
         el?.addEventListener('mousemove', (e) => {
             this.detectMousePosition(e)
         })
+
+        el.addEventListener('mouseleave', () => this.mousePosition = 'no-cursor')
 
         el?.addEventListener('mousedown', this.drag.bind(this))
     }
@@ -445,7 +517,6 @@ class DynamicNode implements DynodeInterface {
         
         const options = this.options
         let el = options.element
-        // const rect = options.rect
 
         // set element
         if(typeof el === 'string') {
@@ -467,16 +538,16 @@ class DynamicNode implements DynodeInterface {
         if(options.dimension) this.dimension = options.dimension
         else this.initRect('dm')
 
-        const EDGE = options.edgeDetectPadding
-        if(typeof EDGE !== 'undefined') this.EDGE = EDGE
+        const { edgeDetectPadding, boundByParent, cursors, allowDrag, allowExternalCtrl, outputDecimal } = options
 
-        const bbp = options.boundByParent
-        if(typeof bbp !== 'undefined') this.boundByParent = bbp
+        this.edgeDetectPadding = edgeDetectPadding as number
+        this.boundByParent = boundByParent as boolean
+        this.cursors = cursors as boolean
+        this.allowDrag = allowDrag as boolean
+        this.allowExternalCtrl = allowExternalCtrl as boolean
+        this.outputDecimal = outputDecimal as number
 
-        this.addElementListeners()
-
-        // const el = this.element
-        el?.classList.add('dynode')
+        this.element.classList.add('dynode')
         this.mounted = true
         delete this['options']
     }
